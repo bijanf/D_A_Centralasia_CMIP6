@@ -16,9 +16,11 @@ import zarr
 import fsspec
 import intake
 print("finished importing")
-ssp="ssp126"
 #=========================================
-output_dir="/p/tmp/fallah/intake/"+ssp+"/"
+ssp="ssp126"
+pctl=99
+#=========================================
+output_dir="./intake/"+ssp+"/"
 cmd="mkdir -p  "+output_dir
 os.system(cmd)
 
@@ -56,31 +58,36 @@ for zstores in target.zstore.values[0:]:
             print("continuing-----------------------")
             continue
         
-     
-        
+        # axtract the data and merge them:
+        #
+        #
         mapper_historical = fsspec.get_mapper(historical_target.zstore_y.values[0])
         
-        # get the values: 
+        # get the values:
+        #
+        #
         ds_historical = xr.open_zarr(mapper_historical, consolidated=True,
                                      decode_times=True)
         ds_histnat    = xr.open_zarr(mapper_histnat, consolidated=True,
                                      decode_times=True)
         # difference of the last 30 years:
-        
+        #
+        # check if it has the full record till 2100:
         if int(str(ds_histnat.indexes['time'][-1])[0:4]) <2080 :
            kk +=1
            print("I will continue")
            continue 
     
-#        print(ds_historical.indexes['time'])
+####### print(ds_historical.indexes['time'])
         print(int(str(ds_historical.indexes['time'][-1])[8:10]))
+        # check if it has all the days:
         if int(str(ds_historical.indexes['time'][-1])[8:10]) == 30: 
           ds_historical.sel(time=slice("1971-01-01","2000-12-30")).to_netcdf("temp_historical.nc")
         else:
           ds_historical.sel(time=slice("1971-01-01","2000-12-31")).to_netcdf("temp_historical.nc")
-#        cmd  ="cdo -O -L -timmean -yearpctl,99.9 temp_historical.nc -yearmin temp_historical.nc -yearmax temp_historical.nc temp_historical_yearmax.nc"
+        cmd  ="cdo -O -L -timmean -yearpctl,"+str(pctl)+" temp_historical.nc -yearmin temp_historical.nc -yearmax temp_historical.nc temp_historical_yearmax.nc"
         # calculate the highest one day precipitation amount per time period "eca_rx1day":
-        cmd  ="cdo -O -L eca_rx1day  temp_historical.nc temp_historical_yearmax.nc"
+####### cmd  ="cdo -O -L eca_rx1day  temp_historical.nc temp_historical_yearmax.nc"
         os.system(cmd)
         print(int(str(ds_histnat.indexes['time'][-1])[8:10]))
         print(ds_histnat.indexes['time'])        
@@ -88,30 +95,20 @@ for zstores in target.zstore.values[0:]:
           ds_histnat.sel(time=slice("2070-01-01","2099-12-30")).to_netcdf("temp_"+ssp+".nc")
         else:
           ds_histnat.sel(time=slice("2070-01-01","2099-12-31")).to_netcdf("temp_"+ssp+".nc")
-        #cmd  ="cdo -O -L -timmean -yearpctl,99.9 temp_"+ssp+".nc -yearmin temp_"+ssp+".nc -yearmax temp_"+ssp+".nc temp_"+ssp+"_yearmax.nc"
-        cmd  = "cdo -O -L eca_rx1day  temp_"+ssp+".nc  temp_"+ssp+"_yearmax.nc"
+        cmd  ="cdo -O -L -timmean -yearpctl,"+str(pctl)+" temp_"+ssp+".nc -yearmin temp_"+ssp+".nc -yearmax temp_"+ssp+".nc temp_"+ssp+"_yearmax.nc"
+####### cmd  = "cdo -O -L eca_rx1day  temp_"+ssp+".nc  temp_"+ssp+"_yearmax.nc"
         os.system(cmd)
         cmd = "cdo -O -L -sellonlatbox,0,150,0,90 -sub temp_"+ssp+"_yearmax.nc temp_historical_yearmax.nc "+ output_dir+"/diff_"+target2.source_id.values[0]+"_"+\
                       target2.institution_id.values[0]+\
                       "_"+\
                       target2.member_id.values[0]+\
                       "_"+\
-                      target2.grid_label.values[0]+"_"+ssp+"_eca_1xday.nc"
+                      target2.grid_label.values[0]+"_"+ssp+"_"+str(pctl)+".nc"
         os.system(cmd)
 
         os.system("rm *.nc")
 
 
-
-#        diff = historical_mean - histnat_mean
-        # Write to the netcdf files:
-#        diff.to_netcdf(output_dir+"/diff_"+target2.source_id.values[0]+"_"+\
-#                      target2.institution_id.values[0]+\
-#                      "_"+\
-#                      target2.member_id.values[0]+\
-#                      "_"+\
-#                      target2.grid_label.values[0]+".nc")
-#        del diff, ds_historical, ds_histnat
         
         print("FINISHED the "+"diff_"+target2.source_id.values[0]+"_"+ target2.institution_id.values[0]+"_"+target2.member_id.values[0]+"_"+ target2.grid_label.values[0]+".nc")
 
